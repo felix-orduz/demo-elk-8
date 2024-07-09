@@ -83,13 +83,13 @@ services:
       memlock:
         soft: -1
         hard: -1
-    mem_limit: 4g
+    mem_limit: ${MEM_LIMIT}
     deploy:
       resources:
         limits:
-          memory: 4g
+          memory: ${MEM_LIMIT}
         reservations:
-          memory: 2g
+          memory: ${MEM_LIMIT}
     healthcheck:
       test:
         [
