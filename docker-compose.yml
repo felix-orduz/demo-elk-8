@@ -8,10 +8,11 @@ services:
       - net_test_logs
     command: >
       bash -c '
-        if [ x${ELASTIC_PASSWORD} == x ]; then
+        set -e;
+        if [ -z "${ELASTIC_PASSWORD}" ]; then
           echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
           exit 1;
-        elif [ x${KIBANA_PASSWORD} == x ]; then
+        elif [ -z "${KIBANA_PASSWORD}" ]; then
           echo "Set the KIBANA_PASSWORD environment variable in the .env file";
           exit 1;
         fi;
@@ -34,21 +35,21 @@ services:
           bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
           unzip config/certs/certs.zip -d config/certs;
         fi;
-        echo "Setting file permissions"
+        echo "Setting file permissions";
         chown -R root:root config/certs;
         find . -type d -exec chmod 750 \{\} \;;
         find . -type f -exec chmod 640 \{\} \;;
         echo "Waiting for Elasticsearch availability";
-        until curl -s --cacert config/certs/ca/ca.crt https://es01:9200 | grep -q "missing authentication credentials"; do sleep 30; done;
+        until curl -s --cacert config/certs/ca/ca.crt https://es01:9200 | grep -q "missing authentication credentials"; do sleep 10; done;
         echo "Setting kibana_system password";
         until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://es01:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
         echo "All done!";
       '
     healthcheck:
       test: ["CMD-SHELL", "[ -f config/certs/es01/es01.crt ]"]
-      interval: 1s
+      interval: 10s
       timeout: 5s
-      retries: 120
+      retries: 5
 
   es01:
     depends_on:
@@ -61,7 +62,7 @@ services:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata01:/usr/share/elasticsearch/data
     ports:
-      - ${ES_PORT}:9200
+      - "${ES_PORT}:9200"
     environment:
       - node.name=es01
       - discovery.type=single-node
@@ -98,7 +99,7 @@ services:
         ]
       interval: 10s
       timeout: 10s
-      retries: 120
+      retries: 5
 
   kibana:
     depends_on:
@@ -109,7 +110,7 @@ services:
       - certs:/usr/share/kibana/config/certs
       - kibanadata:/usr/share/kibana/data
     ports:
-      - ${KIBANA_PORT}:5601
+      - "${KIBANA_PORT}:5601"
     networks:
       - net_test_logs
     environment:
@@ -119,7 +120,6 @@ services:
       - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
       - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=config/certs/ca/ca.crt
       - SERVER_BASEPATH=/kibana
-
     mem_limit: ${MEM_LIMIT}
     healthcheck:
       test:
@@ -129,7 +129,7 @@ services:
         ]
       interval: 10s
       timeout: 10s
-      retries: 120
+      retries: 5
 
   nginx:
     image: nginx:latest
